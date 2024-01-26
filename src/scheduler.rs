@@ -51,12 +51,7 @@ impl<const SIZE : usize> Scheduler<SIZE> {
     /// 
     pub fn process(&self) {
         for task in self.tasks.iter() {
-            match task.state {
-                TaskState::Running => {
-                    (task.func)()
-                },
-                _ => ()
-            }
+            task.execute();
         }
     }
 

@@ -12,7 +12,7 @@ pub const INVALID_ID: usize = usize::MAX;
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum TaskState {
-    Blocked   = 0,
+    Waiting   = 0,
     Suspended = 1,
     Running   = 2
 }
@@ -65,7 +65,7 @@ impl Task {
         self.state = TaskState::Suspended;
     }
 
-        /// Suspends a task to no longer schedule it
+    /// Resumes a task schedule it again
     /// 
     /// # Examples
     ///
@@ -78,6 +78,22 @@ impl Task {
     /// ```
     pub fn resume(&mut self) {
         self.state = TaskState::Running;
+    }
+
+    /// Tries to execute the task dependend on status
+    /// 
+    pub fn execute(&self) {
+        match self.state {
+            TaskState::Running => {
+                (self.func)()
+            },
+            TaskState::Waiting => {
+                {
+                    // TODO: Signal processing
+                }
+            },
+            TaskState::Suspended => (),
+        }
     }
 }
 
@@ -96,8 +112,7 @@ mod tests {
         assert_eq!(t, Task {id: 42, func: task_init, state: TaskState::Running});
     }
     #[test]
-    fn task_suspend_resume() 
-    {
+    fn task_suspend_resume() {
         let mut task = Task::new();
         assert_eq!(task.state, TaskState::Suspended);
         task.resume();
@@ -105,5 +120,4 @@ mod tests {
         task.suspend();
         assert_eq!(task.state, TaskState::Suspended);
     }
-
 }
