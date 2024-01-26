@@ -1,9 +1,16 @@
 
-
+/// Define type used as Task identifier.
+/// 
 pub type TaskId = usize;
+
+/// Defines the invalid task ID value.
+/// 
 pub const INVALID_ID: usize = usize::MAX;
 
+
 #[derive(Clone, Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum TaskState {
     Blocked   = 0,
     Suspended = 1,
@@ -11,6 +18,8 @@ pub enum TaskState {
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub struct Task {
     pub state: TaskState,
     pub id: TaskId,
@@ -20,9 +29,7 @@ pub struct Task {
 /// Default task handler which does nothing
 /// TODO: Thing about Option(f()) and none as default.
 /// 
-fn nop() {
-
-}
+pub fn nop() {}
 
 impl Task {
 
@@ -37,9 +44,66 @@ impl Task {
         }
     }
 
-    /// Initializes s task structure.
-    pub fn init(&mut self, state: TaskState, id : TaskId, func: fn()) {
+    /// Initializes a task structure.
+    pub const fn init(state: TaskState, id : TaskId, func: fn()) -> Self {
 
-        *self = Task { state, id, func }
+        Task { state, id, func }
     }
+
+    /// Suspends a task to no longer schedule it
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use lwos::task::{Task, TaskState};
+    ///
+    /// let mut task = Task::new();
+    /// task.suspend();
+    /// assert_eq!(task.state, TaskState::Suspended);
+    /// ```
+    pub fn suspend(&mut self) {
+        self.state = TaskState::Suspended;
+    }
+
+        /// Suspends a task to no longer schedule it
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use lwos::task::{Task, TaskState};
+    ///
+    /// let mut task = Task::new();
+    /// task.resume();
+    /// assert_eq!(task.state, TaskState::Running);
+    /// ```
+    pub fn resume(&mut self) {
+        self.state = TaskState::Running;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn task_new()  {
+        assert_eq!(Task::new(), Task {id: INVALID_ID, func: nop, state: TaskState::Suspended});
+    }
+
+    #[test]
+    fn task_init()  {
+        let t = Task::init(TaskState::Running, 42, task_init);
+        assert_eq!(t, Task {id: 42, func: task_init, state: TaskState::Running});
+    }
+    #[test]
+    fn task_suspend_resume() 
+    {
+        let mut task = Task::new();
+        assert_eq!(task.state, TaskState::Suspended);
+        task.resume();
+        assert_eq!(task.state, TaskState::Running);
+        task.suspend();
+        assert_eq!(task.state, TaskState::Suspended);
+    }
+
 }

@@ -17,7 +17,9 @@ pub struct Scheduler<const SIZE : usize> {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Error {
-    LimitExceeded
+    LimitExceeded,
+    NoSuchTaskId,
+    InvalidParameter
 }
 
 impl<const SIZE : usize> Scheduler<SIZE> {
@@ -68,7 +70,7 @@ impl<const SIZE : usize> Scheduler<SIZE> {
     /// 
     /// fn task_entry() {}
     /// 
-    /// let mut scheduler  = Scheduler::<3> { tasks: [Task::new(); 3] };
+    /// let mut scheduler: Scheduler::<3> = Scheduler::new();
     /// let task_id = scheduler.add(task_entry,TaskState::Running).unwrap();
     /// ```
     /// 
@@ -76,17 +78,61 @@ impl<const SIZE : usize> Scheduler<SIZE> {
 
         for (index, task) in self.tasks.iter_mut().enumerate() {
             if let INVALID_ID = task.id {
-                task.init(state, index, func);
+                * task = Task::init(state, index, func);
                 return Ok(index);
             }
         }
 
         Err(Error::LimitExceeded)
     }
+
+    /// Removes given task from scheduler.
+    ///  
+    pub fn remove(&mut self, id: TaskId) -> Result<TaskId, Error> {
+        match self.get(id) {
+            Ok(task) => {
+                *task = Task::new();
+
+                Ok(id)
+            },
+            Err(e) => Err(e)
+        }
+    }
+
+    pub fn get(&mut self, id: TaskId) -> Result<&mut Task, Error> {
+        if SIZE > id {
+            if INVALID_ID != self.tasks[id].id {
+                
+                Ok(&mut self.tasks[id])
+            } else {
+                Err(Error::NoSuchTaskId)
+            }
+
+        } else {
+            Err(Error::InvalidParameter)
+        }
+    }
+
+    /// Gets the maximum number of tasks supported by this scheduler.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lwos::scheduler::Scheduler;
+    ///
+    /// let scheduler: Scheduler::<3> = Scheduler::new();
+    /// assert_eq!(scheduler.capacity(), 3);
+    /// ```
+    pub const fn capacity(&self) -> usize {
+        SIZE
+    }
+
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::task;
+
     use super::*;
 
 
@@ -96,6 +142,23 @@ mod tests {
 
     #[test]
     fn scheduler_add() {
+        let mut scheduler: Scheduler::<1>  = Scheduler::new();
+
+        assert_eq!(scheduler.tasks[0].id, INVALID_ID);
+        assert_eq!(scheduler.tasks[0].func as usize, task::nop as usize);
+        assert_eq!(scheduler.tasks[0].state, TaskState::Suspended);
+
+
+        assert_eq!(scheduler.add(task_0, TaskState::Running).unwrap(), 0);
+
+        assert_eq!(scheduler.tasks[0].id, 0);
+        assert_eq!(scheduler.tasks[0].func as usize, task_0 as usize);
+        assert_eq!(scheduler.tasks[0].state, TaskState::Running);
+       
+    }
+
+    #[test]
+    fn scheduler_add_capacity() {
         let mut scheduler: Scheduler::<3>  = Scheduler::new();
 
         assert_eq!(scheduler.add(task_0, TaskState::Running).unwrap(), 0);
@@ -103,7 +166,6 @@ mod tests {
         assert_eq!(scheduler.add(task_2, TaskState::Running).unwrap(), 2);
         assert_eq!(scheduler.add(task_2, TaskState::Running).unwrap_err(), Error::LimitExceeded);
     }
-
     #[test]
     #[should_panic]
     fn scheduler_add_too_much() {
@@ -114,4 +176,15 @@ mod tests {
         assert_eq!(scheduler.add(task_1, TaskState::Running).unwrap(), 1);  // <- panics (capacity)
     }
 
+    #[test]
+    fn scheduler_remove() {
+        let mut scheduler: Scheduler::<1>  = Scheduler::new();
+
+        assert_eq!(scheduler.add(task_0, TaskState::Running).unwrap(), 0);
+        assert_eq!(scheduler.remove(0).unwrap(), 0);
+        assert_eq!(scheduler.remove(0).unwrap_err(), Error::NoSuchTaskId);
+        assert_eq!(scheduler.remove(1).unwrap_err(), Error::InvalidParameter);
+
+
+    }
 }

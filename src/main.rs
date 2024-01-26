@@ -29,7 +29,12 @@ fn main() {
         task_ids[1] = SCHEDULER.add(my_task_func2, TaskState::Running).unwrap();
         task_ids[2] = SCHEDULER.add(my_task_func3, TaskState::Running).unwrap();
  
-        SCHEDULER.process();
+        SCHEDULER.process();  // prints "hello scheduler world! 
+
+        SCHEDULER.get(task_ids[1]).unwrap().suspend();  // disable "scheduler" print task
+
+        SCHEDULER.process(); // prints "hello world!" only
+        
     }
     
 }
