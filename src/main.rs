@@ -4,9 +4,7 @@ use lwos::task::*;
 const TASKS:usize= 16usize;
 
 
-static mut SCHEDULER: Scheduler::<TASKS> = Scheduler::<TASKS> { 
-    tasks: [Task::new(); TASKS]
-};
+static mut SCHEDULER: Scheduler::<TASKS> = Scheduler::new();
 
 
 fn my_task_func1() {
@@ -23,10 +21,13 @@ fn my_task_func3() {
 
 fn main() {
 
+    let mut task_ids: [TaskId; TASKS]= [INVALID_ID; TASKS];
+
+    // unsafe needed because of static scheduler. Not needed for stack based.
     unsafe {
-        SCHEDULER.add(my_task_func1, TaskState::RUNNING);
-        SCHEDULER.add(my_task_func2, TaskState::RUNNING);
-        SCHEDULER.add(my_task_func3, TaskState::RUNNING);
+        task_ids[0] = SCHEDULER.add(my_task_func1, TaskState::Running).unwrap();
+        task_ids[1] = SCHEDULER.add(my_task_func2, TaskState::Running).unwrap();
+        task_ids[2] = SCHEDULER.add(my_task_func3, TaskState::Running).unwrap();
  
         SCHEDULER.process();
     }

@@ -1,37 +1,45 @@
 
+
+pub type TaskId = usize;
+pub const INVALID_ID: usize = usize::MAX;
+
 #[derive(Clone, Copy)]
 pub enum TaskState {
-    SUSPENDED = 0,
-    RUNNING
+    Blocked   = 0,
+    Suspended = 1,
+    Running   = 2
 }
 
 #[derive(Clone, Copy)]
 pub struct Task {
     pub state: TaskState,
-    pub func: Option<fn()>
+    pub id: TaskId,
+    pub func: fn()
+}
+
+/// Default task handler which does nothing
+/// TODO: Thing about Option(f()) and none as default.
+/// 
+fn nop() {
+
 }
 
 impl Task {
 
+    /// Initializes a task structure with defaults
+    /// 
     pub const fn new() -> Self {
 
         Task {
-            state: TaskState::SUSPENDED,
-            func: None
+            state: TaskState::Suspended,
+            id: INVALID_ID,
+            func: nop
         }
     }
 
-    pub fn init(&mut self, state: TaskState, func: fn()) {
+    /// Initializes s task structure.
+    pub fn init(&mut self, state: TaskState, id : TaskId, func: fn()) {
 
-        *self = Task {state: state, func: Some(func) }
-    }
-
-    pub fn process(&self) {
-        if let TaskState::RUNNING = self.state {
-            match self.func {
-                Some(func) => { func() },
-                None => (),
-            }
-        }
+        *self = Task { state, id, func }
     }
 }
