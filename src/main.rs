@@ -1,40 +1,36 @@
 use lwos::scheduler::*;
+use lwos::task;
 use lwos::task::*;
 
 const TASKS:usize= 16usize;
 
-
-static mut SCHEDULER: Scheduler::<TASKS> = Scheduler::new();
-
-
-fn my_task_func1() {
-    print!("Hello ");
+/// Simple executer to print a string
+struct PrintExecuter {
+    msg: &'static str
 }
-
-fn my_task_func2() {
-    print!("scheduler ");
-}
-
-fn my_task_func3() {
-    println!("world!\r\n");
+impl task::Execute for PrintExecuter {
+    fn execute(&mut self, _id : TaskId) {
+        println!("{}", self.msg);
+    }
 }
 
 fn main() {
+    let mut scheduler: Scheduler::<TASKS> = Scheduler::new();
+
+    let mut hello_task = PrintExecuter { msg: &"Hello"};
+    let mut scheduler_task = PrintExecuter { msg: &"scheduler"};
+    let mut world_task = PrintExecuter { msg: &"world!\r\n"};
 
     let mut task_ids: [TaskId; TASKS]= [INVALID_ID; TASKS];
 
-    // unsafe needed because of static scheduler. Not needed for stack based.
-    unsafe {
-        task_ids[0] = SCHEDULER.add(my_task_func1, TaskState::Running).unwrap();
-        task_ids[1] = SCHEDULER.add(my_task_func2, TaskState::Running).unwrap();
-        task_ids[2] = SCHEDULER.add(my_task_func3, TaskState::Running).unwrap();
+    task_ids[0] = scheduler.add(&mut hello_task, TaskState::Running).unwrap();
+    task_ids[1] = scheduler.add(&mut scheduler_task, TaskState::Running).unwrap();
+    task_ids[2] = scheduler.add(&mut world_task, TaskState::Running).unwrap();
  
-        SCHEDULER.process();  // prints "hello scheduler world! 
+    scheduler.process();  // prints "hello scheduler world! 
 
-        SCHEDULER.get(task_ids[1]).unwrap().suspend();  // disable "scheduler" print task
+    scheduler.get(task_ids[1]).unwrap().suspend();  // disable "scheduler" print task
 
-        SCHEDULER.process(); // prints "hello world!" only
-        
-    }
-    
+    scheduler.process(); // prints "hello world!" only
+            
 }

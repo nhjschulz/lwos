@@ -7,8 +7,6 @@ pub type TaskId = usize;
 /// 
 pub const INVALID_ID: usize = usize::MAX;
 
-
-#[derive(Clone, Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum TaskState {
@@ -17,35 +15,42 @@ pub enum TaskState {
     Running   = 2
 }
 
-#[derive(Clone, Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub struct Task {
+pub trait Execute {
+    fn execute(&mut self, id : TaskId);
+}
+
+pub struct Task<'a> {
     pub state: TaskState,
     pub id: TaskId,
-    pub func: fn()
+    pub func: &'a mut dyn Execute
 }
 
 /// Default task handler which does nothing
-/// TODO: Thing about Option(f()) and none as default.
-/// 
-pub fn nop() {}
+///
+struct NopExecuter {}
 
-impl Task {
+impl Execute for NopExecuter {
+    fn execute(&mut self, _id : TaskId) {
+        
+    }
+}
+
+impl<'a> Task<'a> {
 
     /// Initializes a task structure with defaults
     /// 
+    /*
     pub const fn new() -> Self {
 
         Task {
             state: TaskState::Suspended,
             id: INVALID_ID,
-            func: nop
+            func: &mut NOP
         }
     }
-
+*/
     /// Initializes a task structure.
-    pub const fn init(state: TaskState, id : TaskId, func: fn()) -> Self {
+    pub fn init(state: TaskState, id : TaskId, func:&'a mut dyn Execute) -> Self {
 
         Task { state, id, func }
     }
@@ -55,26 +60,38 @@ impl Task {
     /// # Examples
     ///
     /// ```
-    /// use lwos::task::{Task, TaskState};
-    ///
-    /// let mut task = Task::new();
-    /// task.suspend();
-    /// assert_eq!(task.state, TaskState::Suspended);
+    /// use lwos::task::{Task, TaskState, TaskId, Execute};
+    /// 
+    /// struct SomeExecuter {}
+    /// impl Execute for SomeExecuter {
+    ///     fn execute(&mut self, _id : TaskId) {
+    ///     }
+    /// }
+    /// let mut executer = SomeExecuter {};
+    /// let mut t: Task<'_> = Task::init(TaskState::Running, 42, &mut executer);
+    /// t.suspend();
+    /// assert_eq!(t.state, TaskState::Suspended);
     /// ```
     pub fn suspend(&mut self) {
         self.state = TaskState::Suspended;
     }
 
-    /// Resumes a task schedule it again
+    /// Resume a task to execute it again
     /// 
     /// # Examples
     ///
     /// ```
-    /// use lwos::task::{Task, TaskState};
-    ///
-    /// let mut task = Task::new();
-    /// task.resume();
-    /// assert_eq!(task.state, TaskState::Running);
+    /// use lwos::task::{Task, TaskState, TaskId, Execute};
+    /// 
+    /// struct SomeExecuter {}
+    /// impl Execute for SomeExecuter {
+    ///     fn execute(&mut self, _id : TaskId) {
+    ///     }
+    /// }
+    /// let mut executer = SomeExecuter {};
+    /// let mut t: Task<'_> = Task::init(TaskState::Suspended, 42, &mut executer);
+    /// t.resume();
+    /// assert_eq!(t.state, TaskState::Running);
     /// ```
     pub fn resume(&mut self) {
         self.state = TaskState::Running;
@@ -82,10 +99,10 @@ impl Task {
 
     /// Tries to execute the task dependend on status
     /// 
-    pub fn execute(&self) {
+    pub fn process(&mut self, id: TaskId) {
         match self.state {
             TaskState::Running => {
-                (self.func)()
+                self.func.execute(id);
             },
             TaskState::Waiting => {
                 {
@@ -101,23 +118,29 @@ impl Task {
 mod tests {
     use super::*;
 
-    #[test]
-    fn task_new()  {
-        assert_eq!(Task::new(), Task {id: INVALID_ID, func: nop, state: TaskState::Suspended});
+    struct SomeExecuter {}
+    impl Execute for SomeExecuter {
+        fn execute(&mut self, _id : TaskId) {
+        }
     }
 
     #[test]
     fn task_init()  {
-        let t = Task::init(TaskState::Running, 42, task_init);
-        assert_eq!(t, Task {id: 42, func: task_init, state: TaskState::Running});
+        let mut task_executer: SomeExecuter = SomeExecuter {};
+        let t = Task::init(TaskState::Running, 42, &mut task_executer);
+        assert_eq!(t.id , 42);
+        assert_eq!(t.state, TaskState::Running);
+        //assert_eq!(t.func., &mut taskExecuter);
     }
     #[test]
     fn task_suspend_resume() {
-        let mut task = Task::new();
-        assert_eq!(task.state, TaskState::Suspended);
-        task.resume();
-        assert_eq!(task.state, TaskState::Running);
-        task.suspend();
-        assert_eq!(task.state, TaskState::Suspended);
+        let mut task_executer: SomeExecuter = SomeExecuter {};
+        let mut t: Task<'_> = Task::init(TaskState::Suspended, 42, &mut task_executer);
+
+        assert_eq!(t.state, TaskState::Suspended);
+        t.resume();
+        assert_eq!(t.state, TaskState::Running);
+        t.suspend();
+        assert_eq!(t.state, TaskState::Suspended);
     }
 }
