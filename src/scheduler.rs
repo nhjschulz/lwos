@@ -79,9 +79,9 @@ impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
         match self.tasks.iter().position(|x| x.is_none()) {
             Some(id) => {
                 self.tasks[id] = Some(Task::init(state, id, func));
-                return Ok(id);
+                Ok(id)
             }
-            None => return Err(Error::LimitExceeded),
+            None => Err(Error::LimitExceeded),
         }
     }
 
@@ -100,8 +100,8 @@ impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
     pub fn get(&mut self, id: TaskId) -> Result<&mut Task<'a>, Error> {
         if SIZE > id {
             match &mut self.tasks[id] {
-                Some(task) => return Ok(task),
-                None => return Err(Error::NoSuchTaskId),
+                Some(task) => Ok(task),
+                None => Err(Error::NoSuchTaskId),
             }
         } else {
             Err(Error::InvalidParameter)
@@ -182,7 +182,7 @@ mod tests {
         let mut t1: SomeExecuter = SomeExecuter {};
 
         assert_eq!(scheduler.add(&mut t1, TaskState::Running).unwrap(), 0);
-        assert_eq!(scheduler.remove(0).unwrap(), ());
+        assert_eq!(scheduler.remove(0), Ok(()));
         assert_eq!(scheduler.remove(0).unwrap_err(), Error::NoSuchTaskId);
         assert_eq!(scheduler.remove(1).unwrap_err(), Error::InvalidParameter);
     }

@@ -1,4 +1,4 @@
-use lwos;
+
 
 const TASKS: usize = 16usize;
 
@@ -15,9 +15,9 @@ impl lwos::Execute for PrintExecuter {
 fn main() {
     let mut scheduler: lwos::Scheduler<TASKS> = lwos::Scheduler::new();
 
-    let mut hello_task = PrintExecuter { msg: &"Hello" };
-    let mut scheduler_task = PrintExecuter { msg: &"scheduler" };
-    let mut world_task = PrintExecuter { msg: &"world!\r\n" };
+    let mut hello_task = PrintExecuter { msg: "Hello" };
+    let mut scheduler_task = PrintExecuter { msg: "scheduler" };
+    let mut world_task = PrintExecuter { msg: "world!\r\n" };
 
     let mut task_ids: [lwos::TaskId; TASKS] = [lwos::INVALID_ID; TASKS];
 
