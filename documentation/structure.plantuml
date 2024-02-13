@@ -1,0 +1,39 @@
+@startuml lwos overview
+
+class Scheduler{
+    {field} -tasks[]
+
+    {method} +add(func: &'a mut dyn Execute, state: TaskState)
+    {method} +remove(id: TaskId)
+    {method} +get(id: TaskId)
+    {method} +process()
+}
+
+
+class Task{
+    {field} +state
+    {field} +id
+    {field} +func
+
+    {method} +process(id: TaskId)
+    {method} +suspend()
+    {method} +resume()  
+}
+
+enum TaskState{
+    WAITING
+    SUSPENDED
+    RUNNING
+}
+
+class Executer{
+    {method} +execute(&mut self, _id lwos:TaskId): void
+}
+
+note top of Executer: Any class that implements the lwos:Execute Trait.
+
+Scheduler *-- Task
+Task o-- Executer
+Task o-- TaskState
+
+@enduml
