@@ -27,4 +27,5 @@ Follow the installation instruction on [https://rustup.rs/](https://rustup.rs/) 
         ```
 
 ## VSCode
-Install the [rust-analyzer extension](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) for Rust support.
+1. Open the `lwos.code-workspace` file using VSCode. If prompted to open the associated workspace, accept.
+2. Install the [rust-analyzer extension](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) for Rust support. It may be suggested by VSCode on opening the workspace.

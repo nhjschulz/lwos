@@ -1,22 +1,52 @@
 name: Rust
 
+# Controls when the action will run.
 on:
   push:
-    branches: [ "master" ]
+    branches: [ '**' ] # All branches.
   pull_request:
     branches: [ "master" ]
+  # Allows you to run this workflow manually from the Actions tab.
+  workflow_dispatch:
 
+# Environment variables.
 env:
   CARGO_TERM_COLOR: always
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
-  build:
 
+  # The introduction just shows some useful informations.
+  intro:
+    # The type of runner that the job will run on.
     runs-on: ubuntu-latest
-
+    # Steps represent a sequence of tasks that will be executed as part of the job.
     steps:
-    - uses: actions/checkout@v4.1.1
+    - run: echo "The job was automatically triggered by a ${{ github.event_name }} event."
+    - run: echo "The name of the branch is ${{ github.ref }} and the repository is ${{ github.repository }}."
+
+  # Build software.
+  build:
+    # The type of runner that the job will run on.
+    runs-on: ubuntu-latest
+    
+    # Steps represent a sequence of tasks that will be executed as part of the job.
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4.1.1
+    
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    
+  # Test software.
+  test:
+    # The type of runner that the job will run on.
+    runs-on: ubuntu-latest
+    
+    # Steps represent a sequence of tasks that will be executed as part of the job.
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4.1.1
+    
+    - name: Test
       run: cargo test --verbose
