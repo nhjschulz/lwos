@@ -11,9 +11,9 @@ class Scheduler{
 
 
 class Task{
-    {field} +state
-    {field} +id
-    {field} +func
+    {field} +state: TaskState
+    {field} +id: TaskId (uint8)
+    {field} +func: Execute
 
     {method} +process(id: TaskId)
     {method} +suspend()
@@ -26,14 +26,23 @@ enum TaskState{
     RUNNING
 }
 
-class Executer{
+interface Execute {
     {method} +execute(&mut self, _id lwos:TaskId): void
 }
 
-note top of Executer: Any class that implements the lwos:Execute Trait.
+class PrintExecuter{
+}
 
-Scheduler *-- Task
-Task o-- Executer
-Task o-- TaskState
+class NopExecuter{
+
+}
+
+
+Scheduler "1" -- "*"Task
+Task "1" -- "1" Execute
+Task "1" -- "1" TaskState
+
+Execute <|.. PrintExecuter
+Execute <|.. NopExecuter
 
 @enduml
