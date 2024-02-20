@@ -1,31 +1,66 @@
-/// Define type used as Task identifier.
-///
-pub type TaskId = usize;
+// ************************************************************************************************
+// DESCRIPTION
+// ************************************************************************************************
 
-/// Defines the invalid task ID value.
-///
-pub const INVALID_ID: usize = usize::MAX;
+//! # Task definition
+//! - This module provides the task handling functionality.
+//! - A task is a function which can be executed by the scheduler.
+//! - The task can be in different states like waiting, suspended or running.
 
-#[derive(Debug, PartialEq)]
-pub enum TaskState {
-    Waiting = 0,
-    Suspended = 1,
-    Running = 2,
-}
+// ************************************************************************************************
+// MODULES
+// ************************************************************************************************
+
+// ************************************************************************************************
+// TRAITS
+// ************************************************************************************************
 
 pub trait Execute {
     fn execute(&mut self, id: TaskId);
 }
 
+// ************************************************************************************************
+// TYPES AND STRUCTURES
+// ************************************************************************************************
+
+/// Define type used as Task identifier.
+///
+pub type TaskId = usize;
+
+/// Task structure
 pub struct Task<'a> {
     pub state: TaskState,
     pub id: TaskId,
     pub func: &'a mut dyn Execute,
 }
 
+#[derive(Debug, PartialEq)]
+/// Possible Task States.
+pub enum TaskState {
+    Waiting = 0,
+    Suspended = 1,
+    Running = 2,
+}
+
 /// Default task handler which does nothing
 ///
 struct NopExecuter {}
+
+// ************************************************************************************************
+// CONSTANTS
+// ************************************************************************************************
+
+/// Defines the invalid task ID value.
+///
+pub const INVALID_ID: usize = usize::MAX;
+
+// ************************************************************************************************
+// LOCAL VARIABLES
+// ************************************************************************************************
+
+// ************************************************************************************************
+// IMPLEMENTATIONS
+// ************************************************************************************************
 
 impl Execute for NopExecuter {
     fn execute(&mut self, _id: TaskId) {}
@@ -107,6 +142,10 @@ impl<'a> Task<'a> {
         }
     }
 }
+
+// ************************************************************************************************
+// TESTS
+// ************************************************************************************************
 
 #[cfg(test)]
 mod tests {
