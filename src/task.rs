@@ -16,21 +16,20 @@
 // ************************************************************************************************
 
 pub trait Execute {
-    fn execute(&mut self, id: TaskId);
+    fn execute(&self, id: TaskId);
 }
 
 // ************************************************************************************************
 // TYPES AND STRUCTURES
 // ************************************************************************************************
 
-/// Define type used as Task identifier.
+///  Type used as Task identifier.
 ///
 pub type TaskId = usize;
 
 /// Task structure
 pub struct Task<'a> {
     pub state: TaskState,
-    pub id: TaskId,
     pub func: &'a mut dyn Execute,
 }
 
@@ -63,25 +62,14 @@ pub const INVALID_ID: usize = usize::MAX;
 // ************************************************************************************************
 
 impl Execute for NopExecuter {
-    fn execute(&mut self, _id: TaskId) {}
+    fn execute(&self, _id: TaskId) {}
 }
 
 impl<'a> Task<'a> {
-    /// Initializes a task structure with defaults
-    ///
-    /*
-        pub const fn new() -> Self {
-
-            Task {
-                state: TaskState::Suspended,
-                id: INVALID_ID,
-                func: &mut NOP
-            }
-        }
-    */
     /// Initializes a task structure.
-    pub fn init(state: TaskState, id: TaskId, func: &'a mut dyn Execute) -> Self {
-        Task { state, id, func }
+    ///
+    pub fn new(state: TaskState, func: &'a mut dyn Execute) -> Self {
+        Task { state, func }
     }
 
     /// Suspends a task to no longer schedule it
@@ -128,7 +116,7 @@ impl<'a> Task<'a> {
 
     /// Tries to execute the task dependend on status
     ///
-    pub fn process(&mut self, id: TaskId) {
+    pub fn process(&self, id: TaskId) {
         match self.state {
             TaskState::Running => {
                 self.func.execute(id);
@@ -153,21 +141,20 @@ mod tests {
 
     struct SomeExecuter {}
     impl Execute for SomeExecuter {
-        fn execute(&mut self, _id: TaskId) {}
+        fn execute(&self, _id: TaskId) {}
     }
 
     #[test]
     fn task_init() {
         let mut task_executer: SomeExecuter = SomeExecuter {};
-        let t = Task::init(TaskState::Running, 42, &mut task_executer);
-        assert_eq!(t.id, 42);
+        let t = Task::new(TaskState::Running, &mut task_executer);
         assert_eq!(t.state, TaskState::Running);
-        //assert_eq!(t.func., &mut taskExecuter);
     }
+
     #[test]
     fn task_suspend_resume() {
         let mut task_executer: SomeExecuter = SomeExecuter {};
-        let mut t: Task<'_> = Task::init(TaskState::Suspended, 42, &mut task_executer);
+        let mut t: Task<'_> = Task::new(TaskState::Suspended, &mut task_executer);
 
         assert_eq!(t.state, TaskState::Suspended);
         t.resume();
