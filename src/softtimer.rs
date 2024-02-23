@@ -27,6 +27,8 @@
 // ************************************************************************************************
 
 use crate::{Signal, SignalState};
+use core::borrow::Borrow;
+use core::cell::{Ref, RefCell};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 // ************************************************************************************************
@@ -37,10 +39,10 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 // TYPES AND STRUCTURES
 // ************************************************************************************************
 
-/// SoftTimer states
+/// SoftTimerData states
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum State {
-    NotRegistered,
+    Disabled,
     Stopped,
     Running,
 }
@@ -48,16 +50,19 @@ pub enum State {
 /// Posible SoftTimerErr values from this module.
 #[derive(Debug, PartialEq)]
 pub enum SoftTimerErr {
-    NotRegistered,
+    Disabled,
     LimitExceeded,
     NoSuchTimer,
     InvalidParameter,
 }
 
 type Counter = usize;
+type SoftTimerHandle = usize;
 
-/// SoftTimer instance data
-pub struct SoftTimer {
+/// SoftTimerData instance
+#[derive(Debug)]
+
+pub struct SoftTimerData {
     state: State,
     counter: AtomicUsize,
     threshold: Counter,
@@ -74,130 +79,15 @@ const MAX_SOFT_COUNTER: usize = 16usize;
 // LOCAL VARIABLES
 // ************************************************************************************************
 
-pub struct TimerRegistry<'a> {
-    timer: [Option<&'a SoftTimer>; MAX_SOFT_COUNTER],
+pub struct SofTimers {
+    timer: RefCell<[Option<RefCell<SoftTimerData>>; MAX_SOFT_COUNTER]>,
 }
 
 // ************************************************************************************************
 // IMPLEMENTATIONS
 // ************************************************************************************************
 
-impl<'a> SoftTimer {
-    /// Create a new SofTimer
-    ///
-    pub const fn new() -> Self {
-        SoftTimer {
-            state: State::NotRegistered,
-            counter: AtomicUsize::new(0),
-            threshold: 0,
-            auto_restart: false,
-        }
-    }
-
-    /// Starts a timer. If the given threshold timer is timed out, the timer
-    /// will signal. If the timer is already running, it will be restarted
-    /// with the new given threshold
-    ///
-    pub fn start(&mut self, threshold: Counter, auto_restart: bool) -> Result<(), SoftTimerErr> {
-        match self.state {
-            State::NotRegistered => Err(SoftTimerErr::NotRegistered),
-            _ => {
-                self.threshold = threshold;
-                self.counter.store(threshold, Ordering::Relaxed);
-                self.auto_restart = auto_restart;
-                self.state = State::Running;
-
-                Ok(())
-            }
-        }
-    }
-
-    /// Restarts a timer
-    ///
-    pub fn restart(&mut self) -> Result<(), SoftTimerErr> {
-        if let State::NotRegistered = self.state {
-            Err(SoftTimerErr::NotRegistered)
-        } else {
-            self.counter.store(self.threshold, Ordering::Relaxed);
-            self.state = State::Running;
-
-            Ok(())
-        }
-    }
-
-    /// Stops a timer. Note, in stop state the timer will not signal.
-    ///
-    pub fn stop(&mut self) {
-        self.state = State::Stopped;
-    }
-
-    /// Return the current tick count of the timer. Note, that the tick count
-    /// starts at threshold number and will be decreased. Therefore a 10 means
-    /// that the timer has 10 ticks left for timeout.
-    ///
-    pub fn get(&self) -> Result<Counter, SoftTimerErr> {
-        let val = self.counter.load(Ordering::Relaxed);
-
-        match self.state {
-            State::NotRegistered => Err(SoftTimerErr::NotRegistered),
-            State::Stopped => Ok(val),
-            State::Running => {
-                if (0 == val) && self.auto_restart {
-                    self.counter.store(self.threshold, Ordering::Relaxed);
-                }
-                Ok(val)
-            }
-        }
-    }
-
-    pub fn get_state(&self) -> State {
-        self.state
-    }
-
-    /// Update the timer
-    ///
-    /// This function is expected from a cyclic task or interrupt. It
-    /// Decrements a running timer until the count drops down to zero.
-    ///
-    pub fn update(&self) {
-        if State::Running == self.state {
-            let counter = self.counter.load(Ordering::Relaxed);
-            if 0 < counter {
-                self.counter.fetch_sub(1, Ordering::Relaxed);
-            }
-        }
-    }
-
-    pub fn register(
-        &'a mut self,
-        registry: &mut TimerRegistry<'a>,
-    ) -> Result<(&'a mut SoftTimer), SoftTimerErr> {
-        match registry.timer.iter().position(|x| x.is_none()) {
-            Some(id) => {
-                self.state = State::Stopped;
-                registry.timer[id] = Some(self);
-
-                Ok((self))
-            }
-            None => Err(SoftTimerErr::LimitExceeded),
-        }
-    }
-
-    pub fn un_register(&mut self, registry: &mut TimerRegistry) -> Result<(), SoftTimerErr> {
-        for (index, item) in registry.timer.iter().enumerate() {
-            if let Some(_entry) = item {
-                self.state = State::NotRegistered;
-                registry.timer[index] = None;
-
-                return Ok(());
-            }
-        }
-
-        Err(SoftTimerErr::NoSuchTimer)
-    }
-}
-
-impl<'a> Signal for SoftTimer {
+impl Signal for SoftTimerData {
     /// Checks if the timer timed out or not. If the timer timed out, the signal
     /// will be true, otherwise false.
     ///
@@ -215,19 +105,171 @@ impl<'a> Signal for SoftTimer {
     }
 }
 
-impl<'a> Default for TimerRegistry<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> TimerRegistry<'a> {
-    const TIMER_INIT_NONE: Option<&'a SoftTimer> = None;
+impl SofTimers {
+    const TIMER_INIT_NONE: Option<RefCell<SoftTimerData>> = None;
 
     pub fn new() -> Self {
-        TimerRegistry {
-            timer: [Self::TIMER_INIT_NONE; MAX_SOFT_COUNTER],
+        SofTimers {
+            timer: RefCell::new([Self::TIMER_INIT_NONE; MAX_SOFT_COUNTER]),
         }
+    }
+
+    /// Create a new SofTimer
+    ///
+    pub fn create(&self) -> Result<SoftTimerHandle, SoftTimerErr> {
+        let mut timers = self.timer.borrow_mut();
+        match timers.iter().position(|x| x.is_none()) {
+            Some(id) => {
+                timers[id] = Some(RefCell::new(SoftTimerData {
+                    state: State::Disabled,
+                    counter: AtomicUsize::new(0),
+                    threshold: 0,
+                    auto_restart: false,
+                }));
+
+                Ok(id)
+            }
+            None => Err(SoftTimerErr::LimitExceeded),
+        }
+    }
+
+    pub fn delete(&self, handle: SoftTimerHandle) -> Result<(), SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let mut timers = self.timer.borrow_mut();
+            if let Some(_t) = timers[handle].borrow() {
+                timers[handle] = None;
+
+                return Ok(());
+            }
+        }
+
+        Err(SoftTimerErr::NoSuchTimer)
+    }
+
+    /// Starts a timer. If the given threshold timer is timed out, the timer
+    /// will signal. If the timer is already running, it will be restarted
+    /// with the new given threshold
+    ///
+    pub fn start(
+        &self,
+        handle: SoftTimerHandle,
+        threshold: Counter,
+        auto_restart: bool,
+    ) -> Result<(), SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let timers: Ref<'_, [Option<RefCell<SoftTimerData>>; 16]> = self.timer.borrow();
+
+            if let Some(t) = &timers[handle] {
+                let mut data = t.borrow_mut();
+                data.threshold = threshold;
+                data.counter.store(threshold, Ordering::Relaxed);
+                data.auto_restart = auto_restart;
+                data.state = State::Running;
+
+                return Ok(());
+            }
+        } else {
+            return Err(SoftTimerErr::InvalidParameter);
+        }
+
+        Err(SoftTimerErr::NoSuchTimer)
+    }
+
+    /// Restarts a timer
+    ///
+    pub fn restart(&self, handle: SoftTimerHandle) -> Result<(), SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let timers: Ref<'_, [Option<RefCell<SoftTimerData>>; 16]> = self.timer.borrow();
+
+            if let Some(t) = &timers[handle] {
+                let mut data = t.borrow_mut();
+                data.counter.store(data.threshold, Ordering::Relaxed);
+                data.state = State::Running;
+
+                return Ok(());
+            }
+        } else {
+            return Err(SoftTimerErr::InvalidParameter);
+        }
+
+        Err(SoftTimerErr::NoSuchTimer)
+    }
+
+    /// Stops a timer. Note, in stop state the timer will not signal.
+    ///
+    pub fn stop(&self, handle: SoftTimerHandle) -> Result<(), SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let timers: Ref<'_, [Option<RefCell<SoftTimerData>>; 16]> = self.timer.borrow();
+
+            if let Some(t) = &timers[handle] {
+                let mut data = t.borrow_mut();
+                data.state = State::Stopped;
+
+                return Ok(());
+            }
+        } else {
+            return Err(SoftTimerErr::InvalidParameter);
+        }
+
+        Err(SoftTimerErr::NoSuchTimer)
+    }
+
+    /// Disables a timer.
+    ///
+    pub fn disable(&self, handle: SoftTimerHandle) -> Result<(), SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let timers: Ref<'_, [Option<RefCell<SoftTimerData>>; 16]> = self.timer.borrow();
+
+            if let Some(t) = &timers[handle] {
+                let mut data = t.borrow_mut();
+                data.state = State::Disabled;
+
+                return Ok(());
+            }
+        } else {
+            return Err(SoftTimerErr::InvalidParameter);
+        }
+
+        Err(SoftTimerErr::NoSuchTimer)
+    }
+
+    /// Update all running timer
+    ///
+    pub fn update(&self) {
+        for (_idx, entry) in self.timer.borrow().iter().enumerate() {
+            if let Some(t) = entry {
+                let data = t.borrow_mut();
+
+                if State::Running == data.state {
+                    let counter = data.counter.load(Ordering::Relaxed);
+                    if 0 < counter {
+                        data.counter.fetch_sub(1, Ordering::Relaxed);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Get timer data
+    ///
+    pub fn get(&self, handle: SoftTimerHandle) -> Result<SoftTimerData, SoftTimerErr> {
+        if handle < MAX_SOFT_COUNTER {
+            let timers: Ref<'_, [Option<RefCell<SoftTimerData>>; 16]> = self.timer.borrow();
+
+            if let Some(t) = &timers[handle] {
+                let data = t.borrow();
+
+                return Ok(SoftTimerData {
+                    state: data.state,
+                    counter: AtomicUsize::new(data.counter.load(Ordering::Relaxed)),
+                    auto_restart: data.auto_restart,
+                    threshold: data.threshold,
+                });
+            } else {
+                return Err(SoftTimerErr::InvalidParameter);
+            }
+        }
+        Err(SoftTimerErr::NoSuchTimer)
     }
 }
 
@@ -240,24 +282,95 @@ mod tests {
     use super::*;
 
     #[test]
-    fn softimer_init() {
-        let st = SoftTimer::new();
+    fn softimer_register() {
+        let timers = SofTimers::new();
 
-        assert_eq!(st.state, State::NotRegistered);
-        assert!(!st.auto_restart);
-        assert_eq!(st.counter.load(Ordering::Relaxed), 0);
+        let st = timers.create().unwrap();
+        assert_eq!(timers.delete(st), Ok(()));
     }
 
     #[test]
-    fn softimer_register() {
-        let mut registry = TimerRegistry::new();
-        let mut st = SoftTimer::new();
+    fn softimer_init() {
+        let timers = SofTimers::new();
+        let st_h = timers.create().unwrap();
+        let data: SoftTimerData = timers.get(st_h).unwrap();
 
-        {
-            st = st.register(&mut registry).unwrap();
-        }
-        //assert_eq!(st.state, State::Stopped);
+        assert_eq!(data.state, State::Disabled);
+        assert!(!data.auto_restart);
+        assert_eq!(data.counter.load(Ordering::Relaxed), 0);
+    }
 
-        st.un_register(&mut registry).unwrap()
+    #[test]
+    fn softimer_modify() {
+        let timers = SofTimers::new();
+        let h = timers.create().unwrap();
+        let data: SoftTimerData = timers.get(h).unwrap();
+
+        assert_eq!(data.state, State::Disabled);
+
+        assert_eq!(timers.start(h, 1234, true), Ok(()));
+        let data: SoftTimerData = timers.get(h).unwrap();
+
+        assert_eq!(data.state, State::Running);
+        assert_eq!(data.auto_restart, true);
+        assert_eq!(data.counter.load(Ordering::Relaxed), 1234);
+
+        assert_eq!(timers.stop(h), Ok(()));
+
+        let data: SoftTimerData = timers.get(h).unwrap();
+        assert_eq!(data.state, State::Stopped);
+        assert_eq!(data.auto_restart, true);
+        assert_eq!(data.counter.load(Ordering::Relaxed), 1234);
+
+        assert_eq!(timers.delete(h), Ok(()));
+    }
+    #[test]
+    fn softtimer_disable() {
+        let timers = SofTimers::new();
+        let h = timers.create().unwrap();
+        assert_eq!(timers.disable(h), Ok(()));
+        let data: SoftTimerData = timers.get(h).unwrap();
+        assert_eq!(data.state, State::Disabled);
+    }
+
+    #[test]
+    fn softtimer_update() {
+        let timers = SofTimers::new();
+        let h1 = timers.create().unwrap();
+        let h2 = timers.create().unwrap();
+
+        assert_eq!(timers.start(h1, 3, true), Ok(()));
+        assert_eq!(timers.start(h2, 1, true), Ok(()));
+
+        let data: SoftTimerData = timers.get(h1).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 3);
+        let data: SoftTimerData = timers.get(h2).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 1);
+
+        timers.update();
+        let data: SoftTimerData = timers.get(h1).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 2);
+        let data: SoftTimerData = timers.get(h2).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 0);
+
+        timers.update();
+        let data: SoftTimerData = timers.get(h1).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 1);
+        let data: SoftTimerData = timers.get(h2).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 0);
+
+        timers.update();
+        let data: SoftTimerData = timers.get(h1).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 0);
+        let data: SoftTimerData = timers.get(h2).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 0);
+
+        assert_eq!(timers.restart(h1), Ok(()));
+        assert_eq!(timers.restart(h2), Ok(()));
+
+        let data: SoftTimerData = timers.get(h1).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 3);
+        let data: SoftTimerData = timers.get(h2).unwrap();
+        assert_eq!(data.counter.load(Ordering::Relaxed), 1);
     }
 }
