@@ -25,6 +25,9 @@ Follow the installation instruction on [https://rustup.rs/](https://rustup.rs/) 
         linker = "C:\\msys2\\mingw64\\bin\\gcc.exe"
         ar = "C:\\msys2\\mingw64\\bin\\ar.exe"
         ```
+### See Also
+
+[rustup/installation/other}(https://rust-lang.github.io/rustup/installation/other.html)
 
 ## VSCode
 1. Open the `lwos.code-workspace` file using VSCode. If prompted to open the associated workspace, accept.
