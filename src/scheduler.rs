@@ -66,13 +66,14 @@ impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(&mut self, _id : TaskId) {
+    ///     fn execute(& self, _id : TaskId) {
     ///     }
     /// }
     ///
-    /// let mut scheduler: Scheduler::<3> = Scheduler::new();
+    /// let mut scheduler: Scheduler::<3> = lwos::Scheduler::new();
     /// let mut executer = SomeExecuter {};
-    /// let task_id = scheduler.add(&mut executer,TaskState::Running).unwrap();
+    /// let mut t = lwos::Task::new(lwos::TaskState::Running, &mut executer);
+    /// let task_id = scheduler.add(&mut t).unwrap();
     /// ```
     ///   
     pub fn add(&mut self, task: &'a mut Task<'a>) -> Result<TaskId, Error> {
