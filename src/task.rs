@@ -81,11 +81,11 @@ impl<'a> Task<'a> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(&mut self, _id : TaskId) {
+    ///     fn execute(&self, _id : TaskId) {
     ///     }
     /// }
     /// let mut executer = SomeExecuter {};
-    /// let mut t: Task<'_> = Task::init(TaskState::Running, 42, &mut executer);
+    /// let mut t = Task::new(lwos::TaskState::Running, &mut executer);
     /// t.suspend();
     /// assert_eq!(t.state, TaskState::Suspended);
     /// ```
@@ -102,14 +102,15 @@ impl<'a> Task<'a> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(&mut self, _id : TaskId) {
+    ///     fn execute(&self, _id : TaskId) {
     ///     }
     /// }
     /// let mut executer = SomeExecuter {};
-    /// let mut t: Task<'_> = Task::init(TaskState::Suspended, 42, &mut executer);
+    /// let mut t = Task::new(lwos::TaskState::Running, &mut executer);
     /// t.resume();
     /// assert_eq!(t.state, TaskState::Running);
     /// ```
+
     pub fn resume(&mut self) {
         self.state = TaskState::Running;
     }
