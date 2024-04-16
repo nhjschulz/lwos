@@ -16,7 +16,7 @@
 // ************************************************************************************************
 
 pub trait Execute {
-    fn execute(&self, id: TaskId);
+    fn execute(&mut self, id: TaskId);
 }
 
 // ************************************************************************************************
@@ -62,7 +62,7 @@ pub const INVALID_ID: usize = usize::MAX;
 // ************************************************************************************************
 
 impl Execute for NopExecuter {
-    fn execute(&self, _id: TaskId) {}
+    fn execute(&mut self, _id: TaskId) {}
 }
 
 impl<'a> Task<'a> {
@@ -81,7 +81,7 @@ impl<'a> Task<'a> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(&self, _id : TaskId) {
+    ///     fn execute(&mut self, _id : TaskId) {
     ///     }
     /// }
     /// let mut executer = SomeExecuter {};
@@ -102,7 +102,7 @@ impl<'a> Task<'a> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(&self, _id : TaskId) {
+    ///     fn execute(&mut self, _id : TaskId) {
     ///     }
     /// }
     /// let mut executer = SomeExecuter {};
@@ -117,7 +117,7 @@ impl<'a> Task<'a> {
 
     /// Tries to execute the task dependend on status
     ///
-    pub fn process(&self, id: TaskId) {
+    pub fn process(&mut self, id: TaskId) {
         match self.state {
             TaskState::Running => {
                 self.func.execute(id);
@@ -142,7 +142,7 @@ mod tests {
 
     struct SomeExecuter {}
     impl Execute for SomeExecuter {
-        fn execute(&self, _id: TaskId) {}
+        fn execute(&mut self, _id: TaskId) {}
     }
 
     #[test]

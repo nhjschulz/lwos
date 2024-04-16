@@ -66,7 +66,7 @@ impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
     ///
     /// struct SomeExecuter {}
     /// impl Execute for SomeExecuter {
-    ///     fn execute(& self, _id : TaskId) {
+    ///     fn execute(&mut self, _id : TaskId) {
     ///     }
     /// }
     ///
@@ -135,7 +135,7 @@ mod tests {
     use super::*;
     struct SomeExecuter {}
     impl Execute for SomeExecuter {
-        fn execute(&self, _id: TaskId) {}
+        fn execute(&mut self, _id: TaskId) {}
     }
 
     #[test]
