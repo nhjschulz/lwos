@@ -41,10 +41,6 @@ pub enum TaskState {
     Running = 2,
 }
 
-/// Default task handler which does nothing
-///
-struct NopExecuter {}
-
 // ************************************************************************************************
 // CONSTANTS
 // ************************************************************************************************
@@ -60,10 +56,6 @@ pub const INVALID_ID: usize = usize::MAX;
 // ************************************************************************************************
 // IMPLEMENTATIONS
 // ************************************************************************************************
-
-impl Execute for NopExecuter {
-    fn execute(&mut self, _id: TaskId) {}
-}
 
 impl<'a> Task<'a> {
     /// Initializes a task structure.

@@ -6,7 +6,7 @@ use super::task::*;
 /// Definition for the Scheduler data structure which can
 /// manage a set of task stored internally as an array.
 pub struct Scheduler<'a, const SIZE: usize> {
-    tasks: [Option<&'a mut Task<'a>>; SIZE],
+    tasks: [Option<Task<'a>>; SIZE],
 }
 
 /// Posible error values from this module.
@@ -18,7 +18,7 @@ pub enum Error {
 }
 
 impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
-    const TASK_INIT_NONE: Option<&'a mut Task<'a>> = None;
+    const TASK_INIT_NONE: Option<Task<'a>> = None;
 
     /// Creates a scheduler instance with a maximum number of tasks.
     ///
@@ -72,11 +72,11 @@ impl<'a, const SIZE: usize> Scheduler<'a, SIZE> {
     ///
     /// let mut scheduler: Scheduler::<3> = lwos::Scheduler::new();
     /// let mut executer = SomeExecuter {};
-    /// let mut t = lwos::Task::new(lwos::TaskState::Running, &mut executer);
-    /// let task_id = scheduler.add(&mut t).unwrap();
+    /// let t = lwos::Task::new(lwos::TaskState::Running, &mut executer);
+    /// let task_id = scheduler.add(t).unwrap();
     /// ```
     ///   
-    pub fn add(&mut self, task: &'a mut Task<'a>) -> Result<TaskId, Error> {
+    pub fn add(&mut self, task: Task<'a>) -> Result<TaskId, Error> {
         match self.tasks.iter().position(|x| x.is_none()) {
             Some(id) => {
                 self.tasks[id] = Some(task);
@@ -144,9 +144,9 @@ mod tests {
         assert!(scheduler.tasks[0].is_none());
 
         let mut e1: SomeExecuter = SomeExecuter {};
-        let mut t1 = Task::new(TaskState::Running, &mut e1);
+        let t1 = Task::new(TaskState::Running, &mut e1);
 
-        assert_eq!(scheduler.add(&mut t1).unwrap(), 0);
+        assert_eq!(scheduler.add(t1).unwrap(), 0);
 
         assert_eq!(
             scheduler.tasks[0].as_ref().unwrap().state,
@@ -163,15 +163,15 @@ mod tests {
         let mut e3: SomeExecuter = SomeExecuter {};
         let mut e4: SomeExecuter = SomeExecuter {};
 
-        let mut t1 = Task::new(TaskState::Running, &mut e1);
-        let mut t2 = Task::new(TaskState::Running, &mut e2);
-        let mut t3 = Task::new(TaskState::Running, &mut e3);
-        let mut t4 = Task::new(TaskState::Running, &mut e4);
+        let t1 = Task::new(TaskState::Running, &mut e1);
+        let t2 = Task::new(TaskState::Running, &mut e2);
+        let t3 = Task::new(TaskState::Running, &mut e3);
+        let t4 = Task::new(TaskState::Running, &mut e4);
 
-        assert_eq!(scheduler.add(&mut t1).unwrap(), 0);
-        assert_eq!(scheduler.add(&mut t2).unwrap(), 1);
-        assert_eq!(scheduler.add(&mut t3).unwrap(), 2);
-        assert_eq!(scheduler.add(&mut t4).unwrap_err(), Error::LimitExceeded);
+        assert_eq!(scheduler.add(t1).unwrap(), 0);
+        assert_eq!(scheduler.add(t2).unwrap(), 1);
+        assert_eq!(scheduler.add(t3).unwrap(), 2);
+        assert_eq!(scheduler.add(t4).unwrap_err(), Error::LimitExceeded);
     }
 
     #[test]
@@ -180,20 +180,20 @@ mod tests {
         let mut scheduler: Scheduler<1> = Scheduler::new();
         let mut e1: SomeExecuter = SomeExecuter {};
         let mut e2: SomeExecuter = SomeExecuter {};
-        let mut t1 = Task::new(TaskState::Running, &mut e1);
-        let mut t2 = Task::new(TaskState::Running, &mut e2);
+        let t1 = Task::new(TaskState::Running, &mut e1);
+        let t2 = Task::new(TaskState::Running, &mut e2);
 
-        assert_eq!(scheduler.add(&mut t1).unwrap(), 0);
-        assert_eq!(scheduler.add(&mut t2).unwrap(), 1); // <- panics (capacity)
+        assert_eq!(scheduler.add(t1).unwrap(), 0);
+        assert_eq!(scheduler.add(t2).unwrap(), 1); // <- panics (capacity)
     }
 
     #[test]
     fn scheduler_remove() {
         let mut scheduler: Scheduler<1> = Scheduler::new();
         let mut e1: SomeExecuter = SomeExecuter {};
-        let mut t1 = Task::new(TaskState::Running, &mut e1);
+        let t1 = Task::new(TaskState::Running, &mut e1);
 
-        assert_eq!(scheduler.add(&mut t1).unwrap(), 0);
+        assert_eq!(scheduler.add(t1).unwrap(), 0);
         assert_eq!(scheduler.remove(0), Ok(()));
         assert_eq!(scheduler.remove(0).unwrap_err(), Error::NoSuchTaskId);
         assert_eq!(scheduler.remove(1).unwrap_err(), Error::InvalidParameter);
